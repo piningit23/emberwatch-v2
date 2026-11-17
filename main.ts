@@ -3,7 +3,9 @@
 // loads offline (game/index.html and its ES modules, no library, no network request).
 // This program hands it in: it copies game/ and screenshots/ from beside this file
 // to /output and writes /output/dossier.json, the summary the judge reads, using
-// the vendored make.fun library.
+// the vendored make.fun library. It copies only what the entry needs — the whole
+// game/ tree and the screenshots/ the maker took — and refuses nothing silently:
+// buildDossier enforces the scorer's caps, so a bad bundle fails here, not at grade time.
 //
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts

@@ -9,7 +9,7 @@ export function makeEnemy(type, x, y, wave, elite, rng) {
   const base = ENEMIES[type];
   const hpScale = type === 'matriarch' || type === 'king'
     ? 1 + 0.10 * (wave - 1)
-    : 1 + 0.22 * (wave - 1);
+    : 1 + 0.17 * (wave - 1);
   const speedScale = 1 + 0.02 * (wave - 1);
   const e = {
     id: nextId++,
@@ -109,9 +109,9 @@ export function steerEnemy(e, game, dt) {
     e.blinkCd -= dt;
     if (e.blinkCd <= 0 && d > 120) {
       // Blink 40% closer, with a puff.
-      e.x += dx * 0.4; e.y += dy * 0.4;
+      e.x += dx * 0.3; e.y += dy * 0.3;
       game.particles.burst(e.x, e.y, e.glow, 10, 90, 0.4, 2.5);
-      e.blinkCd = 2.2 + game.rng() * 1.6;
+      e.blinkCd = 3.0 + game.rng() * 1.5;
     }
   }
   if (e.type === 'matriarch') {
@@ -123,14 +123,14 @@ export function steerEnemy(e, game, dt) {
       }
       game.particles.ring(e.x, e.y, e.glow, 120);
       game.audio.bossRoar();
-      e.summonCd = 9;
+      e.summonCd = 11;
     }
   }
   if (e.type === 'king') {
     // Radial bursts + charge.
     e.burstCd -= dt;
     if (e.burstCd <= 0) {
-      game.spawnEnemyBullets(e, 12);
+      game.spawnEnemyBullets(e, 10);
       game.audio.bossRoar();
       e.burstCd = 4.2;
     }

@@ -54,6 +54,7 @@ export class Game {
     this.offer = [];
     this.shake = 0;
     this.slowmo = 0;
+    this.flameGuardT = 0;
     this.banner = null; // {text, sub, t}
     this.statsRun = { shots: 0, hits: 0, trapsUsed: 0, dashes: 0 };
   }
@@ -76,7 +77,11 @@ export class Game {
       : comp.boss === 'king' ? 'THE HOLLOW KING AWAKENS'
       : comp.surge ? `SURGE WAVE ${this.wave}` : `Wave ${this.wave}`;
     this.banner = { text: label, sub: comp.surge ? 'Double shards — hold the line!' : comp.boss ? 'Slay the boss to go on.' : '', t: 2.6 };
-    if (comp.boss) this.audio.bossRoar();
+    if (comp.boss) {
+      // The Ember flares in defiance of a boss.
+      this.flame = clamp(this.flame + 30, 0, this.stats.maxFlame);
+      this.audio.bossRoar();
+    }
   }
 
   winGame() {
@@ -96,6 +101,8 @@ export class Game {
 
   addKill(e) {
     this.kills++;
+    // A slain shade feeds the Warden a little life as well as the Ember.
+    this.player.hp = Math.min(this.stats.maxHp, this.player.hp + 2);
     this.combo += 1 * this.stats.comboGain;
     this.comboTimer = this.stats.comboWindow;
     this.comboMult = Math.min(COMBO.maxMult, 1 + Math.floor(this.combo / 5));
@@ -155,7 +162,7 @@ export class Game {
     const p = this.player;
     if (p.invuln > 0 || p.dashT > 0 || this.state !== 'playing') return;
     p.hp -= dmg;
-    p.invuln = 0.7;
+    p.invuln = 0.9;
     p.hurtFlash = 0.25;
     this.shake = Math.max(this.shake, 7);
     this.audio.hurt();
@@ -170,6 +177,9 @@ export class Game {
 
   hurtFlame(dmg, sx, sy) {
     if (this.state !== 'playing') return;
+    // The Ember can only be hurt once per short window, however many shades claw at it.
+    if (this.flameGuardT > 0) return;
+    this.flameGuardT = 1.5;
     this.flame -= dmg * this.stats.flameGuard;
     this.audio.flameHurt();
     this.particles.burst(this.flamePos.x, this.flamePos.y, '#ff9f1c', 6, 120, 0.4, 2.5);
@@ -229,6 +239,7 @@ export class Game {
       this.comboTimer -= dt;
       if (this.comboTimer <= 0) { this.combo = 0; this.comboMult = 1; }
     }
+    this.flameGuardT = Math.max(0, this.flameGuardT - dt);
 
     // Flame drains; regen offsets it.
     this.flame -= (FLAME.drainBase + FLAME.drainPerWave * this.wave) * dt;
@@ -304,7 +315,7 @@ export class Game {
     if (this.spawnQueue.length > 0) {
       this.spawnTimer -= dt;
       const alive = this.enemies.filter((e) => !e.dead).length;
-      if (this.spawnTimer <= 0 && alive < 24) {
+      if (this.spawnTimer <= 0 && alive < 20) {
         const next = this.spawnQueue.shift();
         const pos = edgeSpawn(this.rng);
         const e = makeEnemy(next.type, pos.x, pos.y, this.wave, next.elite, this.rng);
@@ -340,7 +351,7 @@ export class Game {
         b.life = 0;
       }
       if (dist2(b.x, b.y, this.flamePos.x, this.flamePos.y) < (b.radius + 26) ** 2) {
-        this.hurtFlame(b.dmg * 0.5, b.x, b.y);
+        this.hurtFlame(b.dmg * 0.35, b.x, b.y);
         b.life = 0;
       }
     }
@@ -387,11 +398,14 @@ export class Game {
         this.hurtPlayer(e.dmg, e.x, e.y);
         e.touchCd = 0.9;
       }
-      // Contact with the flame.
+      // Contact with the flame. Only flame-hunters (brutes) can hurt the Ember;
+      // other shades are shoved off it — the flame burns what merely touches it.
       const df = dist2(e.x, e.y, this.flamePos.x, this.flamePos.y);
       if (df < (e.radius + 26) ** 2 && e.touchCd <= 0) {
-        this.hurtFlame(e.dmg, e.x, e.y);
-        e.touchCd = 1.0;
+        if (e.target === 'flame') this.hurtFlame(e.dmg, e.x, e.y);
+        else this.particles.burst(this.flamePos.x, this.flamePos.y, '#ff9f1c', 3, 90, 0.3, 2);
+        // Brutes are slow siege attackers: they wind up long between slams.
+        e.touchCd = e.type === 'brute' ? 2.2 : 1.0;
         // Bounce off the flame so it does not sit on it.
         const a = Math.atan2(e.y - this.flamePos.y, e.x - this.flamePos.x);
         e.x = this.flamePos.x + Math.cos(a) * (e.radius + 30);
@@ -462,6 +476,9 @@ export class Game {
     if (this.waveActive && this.spawnQueue.length === 0 && this.enemies.length === 0) {
       this.waveActive = false;
       this.enemyBullets = [];
+      // Catch your breath: wave clear restores a little HP and flame.
+      this.player.hp = Math.min(this.stats.maxHp, this.player.hp + 15);
+      this.flame = clamp(this.flame + 15, 0, this.stats.maxFlame);
       if (this.wave >= TOTAL_WAVES) { this.winGame(); return; }
       this.offer = rollUpgrades(this.rng, this.owned, 3);
       this.state = 'upgrade';

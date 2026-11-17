@@ -45,13 +45,20 @@ const autopilot = {
     }
     if (game.state !== 'playing') return;
     const p = game.player;
-    // Find nearest threat, prefer one close to the flame.
+    // Find nearest threat to the player, with a bonus for flame-attackers near the flame.
+    // A boss is the priority target unless something is right on top of us.
     let target = null, bd = Infinity;
+    const boss = game.enemies.find((e) => e.kind === 'boss' && !e.dead && e.spawnT <= 0);
     for (const e of game.enemies) {
       if (e.dead || e.spawnT > 0) continue;
       const d = Math.hypot(e.x - p.x, e.y - p.y);
       const flameD = Math.hypot(e.x - game.flamePos.x, e.y - game.flamePos.y);
-      const score = d + (e.target === 'flame' ? -120 : 0) + (flameD < 140 ? -200 : 0);
+      let score = d + (flameD < 160 ? -260 : 0);
+      // Flame-hunters are the Ember's doom: intercept them before they arrive.
+      if (e.target === 'flame') score -= 350;
+      // The boss is always the priority unless something is chewing on us.
+      if (boss && e === boss) score -= 400;
+      if (d < 90) score -= 500;
       if (score < bd) { bd = score; target = e; }
     }
     // Movement: kite away from the nearest enemy if too close, else strafe toward the flame guard ring.
@@ -59,13 +66,13 @@ const autopilot = {
     if (target) {
       const d = Math.hypot(target.x - p.x, target.y - p.y);
       const a = Math.atan2(p.y - target.y, p.x - target.x);
-      if (d < 130) { mx = Math.cos(a); my = Math.sin(a); }
+      if (d < 170) { mx = Math.cos(a); my = Math.sin(a); }
       else {
-        // Orbit the flame at ~180px, keeping the target in range.
+        // Orbit the flame at ~220px, keeping the target in range.
         const fa = Math.atan2(p.y - game.flamePos.y, p.x - game.flamePos.x);
         const wantA = fa + 0.9 * dt;
-        const wx = game.flamePos.x + Math.cos(wantA) * 180;
-        const wy = game.flamePos.y + Math.sin(wantA) * 180;
+        const wx = game.flamePos.x + Math.cos(wantA) * 220;
+        const wy = game.flamePos.y + Math.sin(wantA) * 220;
         const dd = Math.hypot(wx - p.x, wy - p.y);
         if (dd > 24) { mx = (wx - p.x) / dd; my = (wy - p.y) / dd; }
       }
@@ -75,8 +82,9 @@ const autopilot = {
       const ay = target.y + (target.vy || 0) * lead;
       input.mouseX = ax; input.mouseY = ay;
       input.mouseDown = true;
-      // Dash away if something is very close.
-      if (d < 80 && p.dashCd <= 0) input.pressed.add('Shift');
+      // Dash away if swarmed or something is very close.
+      const close = game.enemies.filter((e) => !e.dead && e.spawnT <= 0 && Math.hypot(e.x - p.x, e.y - p.y) < 115).length;
+      if (p.dashCd <= 0 && (d < 85 || close >= 3)) input.pressed.add('Shift');
     } else {
       // No enemies: drift toward the nearest shard, else the flame.
       let tx = game.flamePos.x, ty = game.flamePos.y + 150;
@@ -89,7 +97,33 @@ const autopilot = {
       if (dd > 20) { mx = (tx - p.x) / dd; my = (ty - p.y) / dd; }
       input.mouseDown = false;
     }
+    // If the Ember is starving and shards lie around, go fetch the nearest one.
+    // Also sweep up shards whenever nothing is breathing down our neck.
+    const nearestThreat = target ? Math.hypot(target.x - p.x, target.y - p.y) : Infinity;
+    const shardThreshold = game.enemies.some((e) => e.kind === 'boss') ? 85 : 70;
+    if (game.pickups.length > 0 && (game.flame < shardThreshold || nearestThreat > 200)) {
+      let pk = null, bd3 = Infinity;
+      for (const s of game.pickups) {
+        const d = Math.hypot(s.x - p.x, s.y - p.y);
+        if (d < bd3) { bd3 = d; pk = s; }
+      }
+      if (pk && bd3 < 420) {
+        mx = (pk.x - p.x) / (bd3 || 1);
+        my = (pk.y - p.y) / (bd3 || 1);
+      }
+    }
     // Feed the autopilot movement into the real input via a shim.
+    // Dodge incoming enemy bullets: step perpendicular to a close bullet's path.
+    for (const b of game.enemyBullets) {
+      const bd = Math.hypot(b.x - p.x, b.y - p.y);
+      if (bd < 170) {
+        const bl = Math.hypot(b.vx, b.vy) || 1;
+        const px = -b.vy / bl, py = b.vx / bl;
+        const side = (p.x - b.x) * px + (p.y - b.y) * py >= 0 ? 1 : -1;
+        mx = px * side; my = py * side;
+        break;
+      }
+    }
     input._autoMove = { x: mx, y: my };
     // Place a trap when rich in shards and enemies are near the flame.
     if (game.shards >= 30 && game.traps.length < game.stats.trapSlots && game.enemies.length > 4) {
