@@ -13,6 +13,7 @@ const seedParam = params.get('seed');
 const seed = seedParam ? hashSeed(seedParam) : (Math.random() * 0xffffffff) >>> 0;
 const rng = makeRng(seed);
 const AUTO = params.get('auto') === '1';
+const HOLD = params.get('hold') === '1'; // autopilot pauses on the upgrade screen (for screenshots)
 const SPEED = parseFloat(params.get('speed') || '1') || 1;
 
 const canvas = document.getElementById('game');
@@ -36,6 +37,7 @@ const autopilot = {
   update(dt) {
     if (!this.enabled) return;
     if (game.state === 'upgrade') {
+      if (HOLD) return; // stay on the blessing screen for a staged screenshot
       // Auto-pick upgrade: prefer damage/fire-rate/multishot, else first.
       const pref = ['heavy', 'rapid', 'twin', 'pierce', 'wisp', 'hardy', 'kindle'];
       let idx = game.offer.findIndex((o) => pref.includes(o.id));

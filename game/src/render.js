@@ -635,7 +635,7 @@ export class Renderer {
       won ? 'Ten waves. The Hollow King is ash. Dawn breaks over Glimmerhold.'
         : (game.loseReason || 'The Hollow claims another warden.'),
       VIEW.w / 2, 262);
-    const acc = game.statsRun.shots > 0 ? Math.round((game.statsRun.hits / game.statsRun.shots) * 100) : 0;
+    const acc = game.statsRun.shots > 0 ? Math.min(100, Math.round((game.statsRun.hits / game.statsRun.shots) * 100)) : 0;
     ctx.fillStyle = COLORS.dim;
     ctx.font = '16px Georgia, serif';
     const rows = [
