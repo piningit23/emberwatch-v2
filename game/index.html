@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glimmerhold — Last Light of the Hollow</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; background: #05070f; height: 100%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: Georgia, 'Times New Roman', serif;
+  }
+  #wrap { text-align: center; }
+  canvas {
+    display: block; background: #0a0e1a; border: 1px solid #2a3a5f;
+    box-shadow: 0 0 60px rgba(255, 159, 28, 0.12), 0 0 120px rgba(0, 0, 0, 0.8);
+    cursor: crosshair;
+  }
+  #hint { color: #5a6a8a; font-size: 12px; margin-top: 8px; letter-spacing: 0.04em; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="1280" height="720"></canvas>
+  <div id="hint">WASD move &nbsp;·&nbsp; Mouse aim &nbsp;·&nbsp; Hold click to fire &nbsp;·&nbsp; Shift dash &nbsp;·&nbsp; E trap &nbsp;·&nbsp; P pause &nbsp;·&nbsp; M mute</div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
